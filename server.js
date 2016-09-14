@@ -36,21 +36,80 @@ app.get('/scrape', function(req, res){
     request('http://www.gizmodo.com/', function(err, response, html){
         var $ = cheerio.load(html);
 
-        var result = [];
-
         console.log($);
 
         $('h1.headline').each(function(i, element){
             var title =$(element).text();
 
-            var link = $(element + 'a').attr(href);
+            var link = $(element).children('a').attr('href');
 
-            var obj = {
-                title: title,
-                link: link
-            }
-            result.push(obj);
-        })
-        console.log(result);
+            var result = {};
+
+            result.title = title;
+
+            result.link = link;
+
+            var articleEntry = new Article(result);
+
+            articleEntry.save(function(err, doc){
+                if(err){ 
+                    throw err;
+                } else {
+                    console.log(doc);
+                }
+            });
+    });
+    
+});
+res.send('Scrapped that up');
+});
+
+app.get('/articles', function(req, res){
+    Article.find({}, function(err, doc){
+
+        if (err){
+            throw err;
+        } else {
+            res.json(doc);
+        }
+    });
+});
+
+app.get('/article:id', function(req, res){
+    Article.findOne({'_id': req.params.id})
+
+    .populate('note')
+
+    .exec(function(err, doc){
+        if(err){
+            throw err;
+        } else {
+            res.json(doc);
+        }
+    });
+});
+
+app.post('article/:id', function(req, res){
+    var freshNote = new Note(req.body);
+
+    freshNote.save(function(err, doc){
+        if (err){
+            throw err;
+        } else {
+
+            Article.findOne({'_id':req.params.id}, {'note': doc._id})
+
+            .exec(function(err, doc){
+                if(err){
+                    throw err;
+                } else {
+                    res.send(doc);
+                }
+            })
+        }
     })
+})
+
+app.listen(3000, function(){
+    console.log("app is up and running on port 3000!");
 })
